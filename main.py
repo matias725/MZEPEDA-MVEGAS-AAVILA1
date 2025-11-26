@@ -1,419 +1,353 @@
-"""
-Aplicación Principal - EcoTech Solutions
-Sistema de gestión de usuarios con autenticación segura y consulta de datos ambientales
+# App principal - EcoTech Solutions
+# Sistema con login seguro y consulta de API de calidad del aire
 
-Asignatura: Programación Orientada a Objeto Seguro
-Características:
-- Login seguro con bcrypt
-- Límite de 3 intentos fallidos
-- Menú interactivo con CRUD de usuarios
-- Consumo de API de calidad del aire
-- 100% Programación Orientada a Objetos
-"""
 import sys
-from modelos import GestorUsuarios, CredencialesInvalidasException, UsuarioException
-from modelos import Usuario, UsuarioNoEncontradoException, UsuarioDuplicadoException
-from api import ServicioExterno, APIException
+from modelos import GestorUsuarios, UsuarioError, Usuario
+from api import ServicioAPI, APIError
 from db import verificar_conexion
 
-
-# ============================================
-# CLASE APLICACIÓN PRINCIPAL
-# ============================================
-
-class AplicacionEcoTech:
-    """
-    Clase principal que gestiona la aplicación EcoTech Solutions
-    
-    Responsabilidades:
-    - Gestionar el flujo de autenticación
-    - Mostrar menú interactivo
-    - Coordinar operaciones CRUD de usuarios
-    - Integrar datos de la API externa
-    """
-    
+# Clase principal de la aplicacion
+class AppEcoTech:
     def __init__(self):
-        """Inicializa los componentes de la aplicación"""
-        self.gestor_usuarios = GestorUsuarios()
-        self.servicio_api = ServicioExterno()
-        self.usuario_actual = None
-        self.intentos_login = 0
+        self.gestor = GestorUsuarios()
+        self.api = ServicioAPI()
+        self.user_actual = None
+        self.intentos = 0
         self.max_intentos = 3
     
+    # Mostrar banner inicial
     def mostrar_banner(self):
-        """Muestra el banner de bienvenida de la aplicación"""
         print("\n" + "=" * 70)
-        print("   🌱 ECOTECH SOLUTIONS - Sistema de Gestión Ambiental 🌱")
+        print("   ECOTECH SOLUTIONS - Sistema de Gestion Ambiental")
         print("=" * 70)
-        print("   Programación Orientada a Objeto Seguro")
-        print("   Sistema de autenticación y análisis de calidad del aire")
+        print("   Programacion Orientada a Objeto Seguro")
         print("=" * 70 + "\n")
     
+    # Login con maximo 3 intentos
     def login(self):
-        """
-        Gestiona el proceso de autenticación del usuario
+        print("LOGIN\n")
         
-        Seguridad:
-        - Valida credenciales con bcrypt
-        - Limita intentos fallidos a 3
-        - Cierra el programa tras 3 fallos
-        
-        Returns:
-            bool: True si login exitoso, False si se agotaron intentos
-        """
-        print("🔐 INICIO DE SESIÓN\n")
-        
-        while self.intentos_login < self.max_intentos:
-            print(f"Intento {self.intentos_login + 1} de {self.max_intentos}")
+        while self.intentos < self.max_intentos:
+            print(f"Intento {self.intentos + 1} de {self.max_intentos}")
             print("-" * 40)
             
-            nombre_usuario = input("Usuario: ").strip()
-            password = input("Contraseña: ").strip()
+            usuario = input("Usuario: ").strip()
+            password = input("Password: ").strip()
             
-            if not nombre_usuario or not password:
-                print("⚠️  Usuario y contraseña son obligatorios\n")
+            if not usuario or not password:
+                print("Usuario y password son obligatorios\n")
                 continue
             
             try:
-                # Intentar autenticar con bcrypt
-                self.usuario_actual = self.gestor_usuarios.autenticar_usuario(
-                    nombre_usuario, password
-                )
+                # print(f"Intentando login con {usuario}...")  # debug
+                self.user_actual = self.gestor.login(usuario, password)
                 
-                print(f"\n✓ ¡Bienvenido/a {self.usuario_actual.nombre_usuario}!")
-                print(f"✓ Rol: {self.usuario_actual.rol}\n")
+                print(f"\nBienvenido {self.user_actual.nombre_usuario}!")
+                print(f"Rol: {self.user_actual.rol}\n")
                 return True
                 
-            except CredencialesInvalidasException as e:
-                self.intentos_login += 1
-                intentos_restantes = self.max_intentos - self.intentos_login
+            except UsuarioError as e:
+                self.intentos += 1
+                restantes = self.max_intentos - self.intentos
                 
-                print(f"\n✗ Error: {e.mensaje}")
+                print(f"\nError: {e}")
                 
-                if intentos_restantes > 0:
-                    print(f"⚠️  Te quedan {intentos_restantes} intentos\n")
+                if restantes > 0:
+                    print(f"Te quedan {restantes} intentos\n")
                 else:
-                    print("\n🚫 ACCESO DENEGADO: Máximo de intentos alcanzado")
-                    print("   El programa se cerrará por seguridad...\n")
+                    print("\nACCESO DENEGADO: Maximo de intentos alcanzado")
+                    print("Cerrando programa...\n")
                     return False
-                    
             except Exception as e:
-                print(f"\n✗ Error inesperado: {e}\n")
-                self.intentos_login += 1
+                print(f"\nError inesperado: {e}\n")
+                self.intentos += 1
         
         return False
     
-    def mostrar_menu_principal(self):
-        """Muestra el menú principal de opciones"""
+    # Menu principal
+    def menu_principal(self):
         print("\n" + "=" * 70)
-        print("   MENÚ PRINCIPAL")
+        print("   MENU PRINCIPAL")
         print("=" * 70)
         print("   1. Gestionar Usuarios (CRUD)")
         print("   2. Ver Datos Ambientales (API)")
         print("   3. Salir")
         print("=" * 70)
     
-    def mostrar_menu_usuarios(self):
-        """Muestra el menú de gestión de usuarios"""
+    # Menu de usuarios
+    def menu_usuarios(self):
         print("\n" + "-" * 70)
-        print("   GESTIÓN DE USUARIOS")
+        print("   GESTION DE USUARIOS")
         print("-" * 70)
         print("   1. Crear nuevo usuario")
         print("   2. Buscar usuario")
-        print("   3. Listar todos los usuarios")
+        print("   3. Listar todos")
         print("   4. Modificar usuario")
         print("   5. Eliminar usuario")
-        print("   6. Volver al menú principal")
+        print("   6. Volver")
         print("-" * 70)
     
-    def ejecutar_menu_principal(self):
-        """
-        Ejecuta el bucle principal del menú
-        """
+    # Loop del menu principal
+    def run_menu(self):
         while True:
-            self.mostrar_menu_principal()
-            opcion = input("\nSelecciona una opción: ").strip()
+            self.menu_principal()
+            op = input("\nOpcion: ").strip()
             
-            if opcion == '1':
-                self.ejecutar_menu_usuarios()
-            elif opcion == '2':
-                self.consultar_datos_ambientales()
-            elif opcion == '3':
+            if op == '1':
+                self.menu_usuarios_loop()
+            elif op == '2':
+                self.ver_datos_api()
+            elif op == '3':
                 self.salir()
                 break
             else:
-                print("⚠️  Opción no válida. Intenta de nuevo.")
+                print("Opcion no valida")
     
-    def ejecutar_menu_usuarios(self):
-        """
-        Ejecuta el bucle del menú de gestión de usuarios
-        """
+    # Loop del menu usuarios
+    def menu_usuarios_loop(self):
         while True:
-            self.mostrar_menu_usuarios()
-            opcion = input("\nSelecciona una opción: ").strip()
+            self.menu_usuarios()
+            op = input("\nOpcion: ").strip()
             
-            if opcion == '1':
-                self.crear_usuario()
-            elif opcion == '2':
-                self.buscar_usuario()
-            elif opcion == '3':
-                self.listar_usuarios()
-            elif opcion == '4':
-                self.modificar_usuario()
-            elif opcion == '5':
-                self.eliminar_usuario()
-            elif opcion == '6':
+            if op == '1':
+                self.crear_user()
+            elif op == '2':
+                self.buscar_user()
+            elif op == '3':
+                self.listar_users()
+            elif op == '4':
+                self.modificar_user()
+            elif op == '5':
+                self.eliminar_user()
+            elif op == '6':
                 break
             else:
-                print("⚠️  Opción no válida. Intenta de nuevo.")
+                print("Opcion no valida")
     
-    # ========== OPERACIONES CRUD ==========
-    
-    def crear_usuario(self):
-        """Crea un nuevo usuario en el sistema"""
-        print("\n--- CREAR NUEVO USUARIO ---\n")
+    # Crear usuario nuevo
+    def crear_user(self):
+        print("\n--- CREAR USUARIO ---\n")
         
         try:
-            nombre_usuario = input("Nombre de usuario: ").strip()
-            correo = input("Correo electrónico: ").strip()
-            password = input("Contraseña: ").strip()
-            password_confirm = input("Confirmar contraseña: ").strip()
+            nombre = input("Nombre de usuario: ").strip()
+            correo = input("Correo: ").strip()
+            pw = input("Password: ").strip()
+            pw2 = input("Confirmar password: ").strip()
             rol = input("Rol (usuario/administrador) [usuario]: ").strip() or "usuario"
             
-            # Validaciones básicas
-            if not all([nombre_usuario, correo, password]):
-                print("⚠️  Todos los campos son obligatorios")
+            if not all([nombre, correo, pw]):
+                print("Todos los campos son obligatorios")
                 return
             
-            if password != password_confirm:
-                print("⚠️  Las contraseñas no coinciden")
+            if pw != pw2:
+                print("Las passwords no coinciden")
                 return
             
-            if len(password) < 6:
-                print("⚠️  La contraseña debe tener al menos 6 caracteres")
+            if len(pw) < 6:
+                print("Password debe tener al menos 6 caracteres")
                 return
             
-            # Crear objeto Usuario (se hashea automáticamente la contraseña)
-            nuevo_usuario = Usuario(
-                nombre_usuario=nombre_usuario,
+            # print(f"Creando usuario {nombre}...")  # debug
+            nuevo = Usuario(
+                nombre_usuario=nombre,
                 correo=correo,
                 rol=rol,
-                password=password
+                password=pw
             )
             
-            # Agregar a la base de datos
-            self.gestor_usuarios.agregar_usuario(nuevo_usuario)
+            self.gestor.agregar_usuario(nuevo)
             
-        except UsuarioDuplicadoException as e:
-            print(f"✗ {e.mensaje}")
-        except UsuarioException as e:
-            print(f"✗ Error: {e.mensaje}")
+        except UsuarioError as e:
+            print(f"Error: {e}")
         except Exception as e:
-            print(f"✗ Error inesperado: {e}")
+            print(f"Error inesperado: {e}")
     
-    def buscar_usuario(self):
-        """Busca y muestra información de un usuario"""
+    # Buscar usuario
+    def buscar_user(self):
         print("\n--- BUSCAR USUARIO ---\n")
         
         try:
-            nombre_usuario = input("Nombre de usuario a buscar: ").strip()
+            nombre = input("Nombre de usuario: ").strip()
             
-            if not nombre_usuario:
-                print("⚠️  Debes ingresar un nombre de usuario")
+            if not nombre:
+                print("Debes ingresar un nombre")
                 return
             
-            usuario = self.gestor_usuarios.buscar_usuario_por_nombre(nombre_usuario)
+            usr = self.gestor.buscar_por_nombre(nombre)
             
-            print("\n✓ Usuario encontrado:")
+            print("\nUsuario encontrado:")
             print("-" * 50)
-            print(f"  ID: {usuario.id}")
-            print(f"  Usuario: {usuario.nombre_usuario}")
-            print(f"  Correo: {usuario.correo}")
-            print(f"  Rol: {usuario.rol}")
+            print(f"  ID: {usr.id}")
+            print(f"  Usuario: {usr.nombre_usuario}")
+            print(f"  Correo: {usr.correo}")
+            print(f"  Rol: {usr.rol}")
             print("-" * 50)
             
-        except UsuarioNoEncontradoException as e:
-            print(f"✗ {e.mensaje}")
+        except UsuarioError as e:
+            print(f"Error: {e}")
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"Error: {e}")
     
-    def listar_usuarios(self):
-        """Lista todos los usuarios del sistema"""
+    # Listar todos los usuarios
+    def listar_users(self):
         print("\n--- LISTADO DE USUARIOS ---\n")
         
         try:
-            usuarios = self.gestor_usuarios.listar_usuarios()
+            usuarios = self.gestor.listar_todos()
             
             if not usuarios:
-                print("ℹ️  No hay usuarios registrados")
+                print("No hay usuarios")
                 return
             
-            print(f"Total de usuarios: {len(usuarios)}")
+            print(f"Total: {len(usuarios)}")
             print("-" * 70)
             print(f"{'ID':<5} {'Usuario':<20} {'Correo':<30} {'Rol':<15}")
             print("-" * 70)
             
-            for usuario in usuarios:
-                print(f"{usuario.id:<5} {usuario.nombre_usuario:<20} {usuario.correo:<30} {usuario.rol:<15}")
+            for u in usuarios:
+                print(f"{u.id:<5} {u.nombre_usuario:<20} {u.correo:<30} {u.rol:<15}")
             
             print("-" * 70)
             
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"Error: {e}")
     
-    def modificar_usuario(self):
-        """Modifica los datos de un usuario existente"""
+    def modificar_user(self):
+        # Modificar datos de usuario
         print("\n--- MODIFICAR USUARIO ---\n")
         
         try:
-            id_usuario = input("ID del usuario a modificar: ").strip()
+            id_usuario = input("ID del usuario: ").strip()
             
             if not id_usuario.isdigit():
-                print("⚠️  El ID debe ser un número")
+                print("El ID debe ser numero")
                 return
             
             id_usuario = int(id_usuario)
             
-            # Verificar que el usuario existe
-            usuario = self.gestor_usuarios.buscar_usuario_por_id(id_usuario)
+            # buscar el usuario
+            usuario = self.gestor.buscar_usuario_por_id(id_usuario)
             
-            print(f"\nUsuario actual: {usuario.nombre_usuario}")
-            print("Deja en blanco los campos que no deseas modificar\n")
+            print(f"\nUsuario: {usuario.nombre_usuario}")
+            print("deja en blanco si no quieres cambiar\n")
             
-            nuevo_correo = input(f"Nuevo correo [{usuario.correo}]: ").strip()
-            nuevo_rol = input(f"Nuevo rol [{usuario.rol}]: ").strip()
-            nueva_password = input("Nueva contraseña [dejar en blanco para no cambiar]: ").strip()
+            nuevo_correo = input(f"correo [{usuario.correo}]: ").strip()
+            nuevo_rol = input(f"rol [{usuario.rol}]: ").strip()
+            nueva_pass = input("password [dejar vacio]: ").strip()
             
-            # Solo modificar si al menos un campo fue proporcionado
-            if nuevo_correo or nuevo_rol or nueva_password:
-                self.gestor_usuarios.modificar_usuario(
+            # modificar solo si hay algo
+            if nuevo_correo or nuevo_rol or nueva_pass:
+                self.gestor.modificar_usuario(
                     id_usuario=id_usuario,
                     nuevo_correo=nuevo_correo if nuevo_correo else None,
                     nuevo_rol=nuevo_rol if nuevo_rol else None,
-                    nueva_password=nueva_password if nueva_password else None
+                    nueva_password=nueva_pass if nueva_pass else None
                 )
             else:
-                print("ℹ️  No se realizaron cambios")
+                print("no se cambio nada")
                 
-        except UsuarioNoEncontradoException as e:
-            print(f"✗ {e.mensaje}")
+        except UsuarioError as e:
+            print(f"Error: {e.mensaje}")
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"Error: {e}")
     
-    def eliminar_usuario(self):
-        """Elimina un usuario del sistema"""
+    def eliminar_user(self):
+        # Eliminar usuario
         print("\n--- ELIMINAR USUARIO ---\n")
         
         try:
             id_usuario = input("ID del usuario a eliminar: ").strip()
             
             if not id_usuario.isdigit():
-                print("⚠️  El ID debe ser un número")
+                print("El ID debe ser numero")
                 return
             
             id_usuario = int(id_usuario)
             
-            # Verificar que el usuario existe
-            usuario = self.gestor_usuarios.buscar_usuario_por_id(id_usuario)
+            # ver si existe
+            usuario = self.gestor.buscar_usuario_por_id(id_usuario)
             
-            # Prevenir auto-eliminación
-            if self.usuario_actual and usuario.id == self.usuario_actual.id:
-                print("⚠️  No puedes eliminar tu propia cuenta mientras estás autenticado")
+            # no te puedes eliminar a ti mismo
+            if self.user_actual and usuario.id == self.user_actual.id:
+                print("No puedes eliminarte a ti mismo")
                 return
             
-            # Confirmar eliminación
-            confirmacion = input(f"¿Seguro que deseas eliminar a '{usuario.nombre_usuario}'? (s/n): ").strip().lower()
+            # confirmar
+            confirmacion = input(f"Seguro que quieres borrar a '{usuario.nombre_usuario}'? (s/n): ").strip().lower()
             
             if confirmacion == 's':
-                self.gestor_usuarios.eliminar_usuario(id_usuario)
+                self.gestor.eliminar_usuario(id_usuario)
             else:
-                print("ℹ️  Operación cancelada")
+                print("Cancelado")
                 
-        except UsuarioNoEncontradoException as e:
-            print(f"✗ {e.mensaje}")
+        except UsuarioError as e:
+            print(f"Error: {e.mensaje}")
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"Error: {e}")
     
-    # ========== CONSULTA DE API ==========
+    # ========== API ==========
     
-    def consultar_datos_ambientales(self):
-        """
-        Consulta y muestra datos de calidad del aire
-        
-        Esta funcionalidad es clave para EcoTech Solutions ya que proporciona
-        información en tiempo real sobre contaminación atmosférica, permitiendo
-        tomar decisiones informadas sobre estrategias ambientales.
-        """
+    def ver_datos_api(self):
+        # Consultar API de calidad del aire
         print("\n--- DATOS AMBIENTALES (API) ---\n")
         
         try:
-            ciudad = input("Ingresa la ciudad a consultar [Mexico]: ").strip() or "Mexico"
+            ciudad = input("ciudad [Mexico]: ").strip() or "Mexico"
             
-            print("\n⏳ Consultando datos de calidad del aire...\n")
-            self.servicio_api.mostrar_datos_aire(ciudad)
+            print("\nconsultando...\n")
+            self.api.mostrar_datos(ciudad)
             
-        except APIException as e:
-            print(f"\n✗ Error al consultar API: {e.mensaje}")
+        except APIError as e:
+            print(f"\nError API: {e.mensaje}")
         except Exception as e:
-            print(f"\n✗ Error inesperado: {e}")
+            print(f"\nError: {e}")
         
-        input("\n\nPresiona Enter para continuar...")
+        input("\n\nEnter para continuar...")
     
     # ========== SALIDA ==========
     
     def salir(self):
-        """Cierra la aplicación de forma ordenada"""
+        # salir del programa
         print("\n" + "=" * 70)
         print("   Gracias por usar EcoTech Solutions")
-        print("   ¡Juntos construimos un futuro más verde! 🌱")
+        print("   Juntos construimos un futuro mas verde")
         print("=" * 70 + "\n")
     
     def iniciar(self):
-        """
-        Método principal que inicia la aplicación
-        
-        Flujo:
-        1. Mostrar banner
-        2. Verificar conexión a BD
-        3. Login (máximo 3 intentos)
-        4. Si login exitoso, mostrar menú
-        5. Si falla, cerrar programa
-        """
+        # inicio del programa
         self.mostrar_banner()
         
-        # Verificar conexión a la base de datos
-        print("🔍 Verificando conexión a la base de datos...")
+        # ver si hay conexion a la base de datos
+        print("verificando conexion a BD...")
         if not verificar_conexion():
-            print("\n✗ No se pudo conectar a la base de datos")
-            print("   Verifica que MySQL esté corriendo y que las credenciales en .env sean correctas")
+            print("\nNo se pudo conectar a la BD")
+            print("verifica que MySQL este corriendo y el .env")
             sys.exit(1)
         
-        print()  # Línea en blanco
+        print()
         
-        # Proceso de login
+        # login
         if not self.login():
             sys.exit(1)
         
-        # Si login exitoso, mostrar menú
+        # mostrar menu si el login fue ok
         try:
-            self.ejecutar_menu_principal()
+            self.run_menu()
         except KeyboardInterrupt:
-            print("\n\n⚠️  Programa interrumpido por el usuario")
+            print("\n\nPrograma interrumpido")
             self.salir()
         except Exception as e:
-            print(f"\n✗ Error crítico: {e}")
+            print(f"\nError: {e}")
             sys.exit(1)
 
 
 # ============================================
-# PUNTO DE ENTRADA DE LA APLICACIÓN
+# MAIN
 # ============================================
 
 def main():
-    """
-    Función principal que crea e inicia la aplicación
-    """
-    app = AplicacionEcoTech()
+    # crear app e iniciar
+    app = AppEcoTech()
     app.iniciar()
 
 

@@ -1,173 +1,82 @@
-"""
-Módulo de API Externa - EcoTech Solutions
-Consume datos de calidad del aire de la API pública AQICN (Air Quality Index China)
-Esta API NO requiere clave y proporciona datos de contaminación del aire en tiempo real
+# Consumo de API externa - Calidad del Aire
+# API: AQICN (NO usar OpenWeatherMap como dice la profe)
+# Justificacion: datos de contaminacion son importantes para EcoTech
 
-PROHIBICIÓN: No usar OpenWeatherMap según requisitos del proyecto
-
-Justificación empresarial para EcoTech Solutions:
-- Los datos de calidad del aire son críticos para decisiones ambientales
-- Permite evaluar niveles de contaminación en tiempo real
-- Ayuda a planificar estrategias de reducción de emisiones
-- Facilita recomendaciones basadas en datos científicos actualizados
-"""
 import requests
 import json
 from datetime import datetime
 
+# Error para cuando falla la API
+class APIError(Exception):
+    pass
 
-# ============================================
-# EXCEPCIÓN PERSONALIZADA PARA API
-# ============================================
-
-class APIException(Exception):
-    """
-    Excepción personalizada para errores relacionados con la API externa
-    """
-    def __init__(self, mensaje):
-        self.mensaje = mensaje
-        super().__init__(self.mensaje)
-
-
-# ============================================
-# CLASE SERVICIO EXTERNO
-# ============================================
-
-class ServicioExterno:
-    """
-    Clase que gestiona el consumo de la API de calidad del aire
-    
-    Usa la API pública AQICN para obtener datos de contaminación atmosférica
-    Esta información es vital para EcoTech Solutions en la toma de decisiones
-    sobre estrategias ambientales.
-    
-    API Utilizada: AQICN (Air Quality Open Data Platform)
-    Endpoints: https://api.waqi.info/
-    """
-    
+# Clase para consumir la API de calidad del aire
+class ServicioAPI:
     def __init__(self):
-        """
-        Inicializa el servicio con la URL base de la API
-        
-        Nota: Esta API pública no requiere autenticación para endpoints básicos
-        En producción, se usaría un token almacenado en .env
-        """
-        self.base_url = "https://api.waqi.info"
-        # Para uso completo de la API, registrarse en: https://aqicn.org/data-platform/token/
-        self.token = "demo"  # Token demo para testing (limitado)
+        self.url = "https://api.waqi.info"
+        self.token = "demo"  # token de prueba
     
-    def obtener_calidad_aire_ciudad(self, ciudad="Mexico"):
-        """
-        Obtiene datos de calidad del aire para una ciudad específica
-        
-        Args:
-            ciudad (str): Nombre de la ciudad (por defecto Mexico)
-            
-        Returns:
-            dict: Diccionario con datos de calidad del aire
-            
-        Raises:
-            APIException: Si hay error en la consulta a la API
-            
-        Impacto para EcoTech:
-        - Monitorear contaminación en zonas de interés
-        - Evaluar eficacia de iniciativas de reducción de emisiones
-        - Generar alertas cuando la calidad del aire es peligrosa
-        """
+    # Obtener datos de calidad del aire
+    def get_calidad_aire(self, ciudad="Mexico"):
         try:
-            # Construir URL del endpoint
-            url = f"{self.base_url}/feed/{ciudad}/?token={self.token}"
+            url = f"{self.url}/feed/{ciudad}/?token={self.token}"
+            # print(f"Consultando API: {url}")  # debug
             
-            # Realizar petición GET
-            print(f"🌍 Consultando calidad del aire en {ciudad}...")
             response = requests.get(url, timeout=10)
-            
-            # Verificar que la respuesta sea exitosa
             response.raise_for_status()
             
-            # Parsear JSON
             datos = response.json()
             
-            # Verificar que la respuesta sea válida
             if datos.get('status') != 'ok':
-                raise APIException(f"Error en API: {datos.get('data', 'Respuesta inválida')}")
+                raise APIError(f"API error: {datos.get('data', 'unknown')}")
             
-            # Extraer información relevante
-            info_aire = self._procesar_datos_aire(datos['data'])
-            return info_aire
+            info = self._procesar_datos(datos['data'])
+            return info
             
         except requests.exceptions.Timeout:
-            raise APIException("Tiempo de espera agotado al conectar con la API")
+            raise APIError("Timeout conectando a la API")
         except requests.exceptions.ConnectionError:
-            raise APIException("No se pudo conectar con el servicio de calidad del aire")
+            raise APIError("No se pudo conectar")
         except requests.exceptions.HTTPError as e:
-            raise APIException(f"Error HTTP: {e}")
+            raise APIError(f"HTTP error: {e}")
         except json.JSONDecodeError:
-            raise APIException("Error al procesar la respuesta JSON de la API")
+            raise APIError("Error parseando JSON")
         except Exception as e:
-            raise APIException(f"Error inesperado: {e}")
+            raise APIError(f"Error: {e}")
     
-    def _procesar_datos_aire(self, datos):
-        """
-        Procesa y estructura los datos recibidos de la API
-        
-        Args:
-            datos (dict): Datos crudos de la API
-            
-        Returns:
-            dict: Datos procesados y estructurados
-        """
-        # Extraer índice AQI (Air Quality Index)
+    # Procesar los datos que vienen de la API (deserializacion JSON)
+    def _procesar_datos(self, datos):
         aqi = datos.get('aqi', 'N/A')
-        
-        # Extraer estación de monitoreo
         estacion = datos.get('city', {}).get('name', 'Desconocida')
-        
-        # Extraer coordenadas
-        coordenadas = datos.get('city', {}).get('geo', [])
-        
-        # Extraer información de contaminantes
+        coords = datos.get('city', {}).get('geo', [])
         iaqi = datos.get('iaqi', {})
-        
-        # Extraer fecha/hora de medición
         tiempo = datos.get('time', {}).get('s', 'N/A')
         
-        # Construir diccionario estructurado
-        info_procesada = {
+        info = {
             'aqi': aqi,
             'estacion': estacion,
-            'coordenadas': coordenadas,
-            'clasificacion': self._clasificar_aqi(aqi),
-            'nivel_peligro': self._nivel_peligro_aqi(aqi),
+            'coordenadas': coords,
+            'clasificacion': self._clasificar(aqi),
+            'nivel': self._get_nivel(aqi),
             'contaminantes': {
-                'pm25': iaqi.get('pm25', {}).get('v', 'N/A'),  # Material particulado 2.5
-                'pm10': iaqi.get('pm10', {}).get('v', 'N/A'),  # Material particulado 10
-                'o3': iaqi.get('o3', {}).get('v', 'N/A'),      # Ozono
-                'no2': iaqi.get('no2', {}).get('v', 'N/A'),    # Dióxido de nitrógeno
-                'so2': iaqi.get('so2', {}).get('v', 'N/A'),    # Dióxido de azufre
-                'co': iaqi.get('co', {}).get('v', 'N/A')       # Monóxido de carbono
+                'pm25': iaqi.get('pm25', {}).get('v', 'N/A'),
+                'pm10': iaqi.get('pm10', {}).get('v', 'N/A'),
+                'o3': iaqi.get('o3', {}).get('v', 'N/A'),
+                'no2': iaqi.get('no2', {}).get('v', 'N/A'),
+                'so2': iaqi.get('so2', {}).get('v', 'N/A'),
+                'co': iaqi.get('co', {}).get('v', 'N/A')
             },
-            'temperatura': iaqi.get('t', {}).get('v', 'N/A'),
+            'temp': iaqi.get('t', {}).get('v', 'N/A'),
             'humedad': iaqi.get('h', {}).get('v', 'N/A'),
             'presion': iaqi.get('p', {}).get('v', 'N/A'),
-            'tiempo_medicion': tiempo
+            'tiempo': tiempo
         }
-        
-        return info_procesada
+        return info
     
-    def _clasificar_aqi(self, aqi):
-        """
-        Clasifica el índice AQI según estándares internacionales
-        
-        Args:
-            aqi (int): Índice de calidad del aire
-            
-        Returns:
-            str: Clasificación textual
-        """
+    # Clasificar el AQI
+    def _clasificar(self, aqi):
         if aqi == 'N/A':
             return 'Desconocido'
-        
         try:
             aqi = int(aqi)
             if aqi <= 50:
@@ -175,166 +84,106 @@ class ServicioExterno:
             elif aqi <= 100:
                 return 'Moderado'
             elif aqi <= 150:
-                return 'Dañino para grupos sensibles'
+                return 'Danino para grupos sensibles'
             elif aqi <= 200:
-                return 'Dañino'
+                return 'Danino'
             elif aqi <= 300:
-                return 'Muy dañino'
+                return 'Muy danino'
             else:
                 return 'Peligroso'
-        except (ValueError, TypeError):
+        except:
             return 'Desconocido'
     
-    def _nivel_peligro_aqi(self, aqi):
-        """
-        Determina el nivel de peligro basado en el AQI
-        
-        Args:
-            aqi (int): Índice de calidad del aire
-            
-        Returns:
-            str: Nivel de peligro (BAJO, MEDIO, ALTO, CRÍTICO)
-        """
+    # Nivel de peligro
+    def _get_nivel(self, aqi):
         if aqi == 'N/A':
             return 'DESCONOCIDO'
-        
         try:
             aqi = int(aqi)
             if aqi <= 50:
-                return '🟢 BAJO'
+                return 'BAJO'
             elif aqi <= 100:
-                return '🟡 MEDIO'
+                return 'MEDIO'
             elif aqi <= 200:
-                return '🟠 ALTO'
+                return 'ALTO'
             else:
-                return '🔴 CRÍTICO'
-        except (ValueError, TypeError):
+                return 'CRITICO'
+        except:
             return 'DESCONOCIDO'
     
-    def mostrar_datos_aire(self, ciudad="Mexico"):
-        """
-        Obtiene y muestra de forma amigable los datos de calidad del aire
-        
-        Args:
-            ciudad (str): Ciudad a consultar
-            
-        Esta función presenta los datos de manera clara para que EcoTech Solutions
-        pueda tomar decisiones informadas sobre estrategias ambientales.
-        """
+    # Mostrar datos en consola
+    def mostrar_datos(self, ciudad="Mexico"):
         try:
-            datos = self.obtener_calidad_aire_ciudad(ciudad)
+            datos = self.get_calidad_aire(ciudad)
             
             print("\n" + "=" * 70)
-            print(" 🌍 INFORME DE CALIDAD DEL AIRE - EcoTech Solutions")
+            print(" INFORME DE CALIDAD DEL AIRE - EcoTech Solutions")
             print("=" * 70)
             
-            print(f"\n📍 Estación de Monitoreo: {datos['estacion']}")
-            print(f"📅 Fecha/Hora: {datos['tiempo_medicion']}")
+            print(f"\nEstacion: {datos['estacion']}")
+            print(f"Fecha/Hora: {datos['tiempo']}")
             
             if datos['coordenadas']:
-                print(f"🗺️  Coordenadas: {datos['coordenadas']}")
+                print(f"Coordenadas: {datos['coordenadas']}")
             
-            print(f"\n🔢 Índice AQI: {datos['aqi']}")
-            print(f"📊 Clasificación: {datos['clasificacion']}")
-            print(f"⚠️  Nivel de Peligro: {datos['nivel_peligro']}")
+            print(f"\nIndice AQI: {datos['aqi']}")
+            print(f"Clasificacion: {datos['clasificacion']}")
+            print(f"Nivel de Peligro: {datos['nivel']}")
             
-            print("\n📈 CONTAMINANTES DETECTADOS:")
+            print("\nCONTAMINANTES:")
             print("-" * 70)
+            cont = datos['contaminantes']
+            print(f"  PM2.5: {cont['pm25']}")
+            print(f"  PM10: {cont['pm10']}")
+            print(f"  O3 (Ozono): {cont['o3']}")
+            print(f"  NO2: {cont['no2']}")
+            print(f"  SO2: {cont['so2']}")
+            print(f"  CO: {cont['co']}")
             
-            contaminantes = datos['contaminantes']
-            print(f"  • PM2.5 (Partículas finas):        {contaminantes['pm25']}")
-            print(f"  • PM10 (Partículas suspendidas):   {contaminantes['pm10']}")
-            print(f"  • O₃ (Ozono):                      {contaminantes['o3']}")
-            print(f"  • NO₂ (Dióxido de nitrógeno):      {contaminantes['no2']}")
-            print(f"  • SO₂ (Dióxido de azufre):         {contaminantes['so2']}")
-            print(f"  • CO (Monóxido de carbono):        {contaminantes['co']}")
-            
-            print("\n🌡️  CONDICIONES METEOROLÓGICAS:")
+            print("\nCONDICIONES METEOROLOGICAS:")
             print("-" * 70)
-            print(f"  • Temperatura: {datos['temperatura']}°C")
-            print(f"  • Humedad: {datos['humedad']}%")
-            print(f"  • Presión: {datos['presion']} hPa")
+            print(f"  Temperatura: {datos['temp']}C")
+            print(f"  Humedad: {datos['humedad']}%")
+            print(f"  Presion: {datos['presion']} hPa")
             
-            print("\n💡 ANÁLISIS PARA ECOTECH SOLUTIONS:")
+            print("\nANALISIS PARA ECOTECH:")
             print("-" * 70)
-            self._generar_recomendaciones(datos['aqi'])
+            self._recomendaciones(datos['aqi'])
             
             print("\n" + "=" * 70)
             
-        except APIException as e:
-            print(f"\n✗ Error al obtener datos: {e.mensaje}")
+        except APIError as e:
+            print(f"\nError obteniendo datos: {e}")
     
-    def _generar_recomendaciones(self, aqi):
-        """
-        Genera recomendaciones empresariales basadas en el AQI
-        
-        Args:
-            aqi (int/str): Índice de calidad del aire
-        """
+    # Recomendaciones basadas en AQI
+    def _recomendaciones(self, aqi):
         try:
-            aqi_val = int(aqi) if aqi != 'N/A' else 0
+            val = int(aqi) if aqi != 'N/A' else 0
             
-            if aqi_val <= 50:
-                print("  ✓ Calidad del aire óptima para actividades al aire libre")
-                print("  ✓ Condiciones favorables para iniciativas de energía solar")
-                print("  ✓ Momento ideal para campañas de concientización ambiental")
-            elif aqi_val <= 100:
-                print("  ⚠ Calidad del aire aceptable, monitorear tendencias")
-                print("  ⚠ Considerar estrategias preventivas de reducción de emisiones")
-            elif aqi_val <= 200:
-                print("  ⚠ Alerta: Implementar medidas de mitigación inmediatas")
-                print("  ⚠ Limitar actividades que generen más contaminación")
-                print("  ⚠ Activar protocolos de protección para grupos vulnerables")
+            if val <= 50:
+                print("  Calidad del aire optima")
+                print("  Buenas condiciones para actividades exteriores")
+            elif val <= 100:
+                print("  Calidad aceptable, monitorear")
+                print("  Considerar estrategias preventivas")
+            elif val <= 200:
+                print("  ALERTA: Implementar medidas inmediatas")
+                print("  Limitar actividades contaminantes")
             else:
-                print("  🚨 CRÍTICO: Activar plan de emergencia ambiental")
-                print("  🚨 Suspender actividades contaminantes no esenciales")
-                print("  🚨 Coordinar con autoridades para acciones correctivas")
-                
-        except (ValueError, TypeError):
-            print("  ℹ️  No hay suficientes datos para generar recomendaciones")
+                print("  CRITICO: Plan de emergencia")
+                print("  Suspender actividades no esenciales")
+        except:
+            print("  No hay datos suficientes")
     
-    def obtener_datos_json(self, ciudad="Mexico"):
-        """
-        Retorna los datos en formato JSON para integración con otros sistemas
-        
-        Args:
-            ciudad (str): Ciudad a consultar
-            
-        Returns:
-            str: Datos en formato JSON
-        """
+    # Retornar en formato JSON
+    def get_json(self, ciudad="Mexico"):
         try:
-            datos = self.obtener_calidad_aire_ciudad(ciudad)
+            datos = self.get_calidad_aire(ciudad)
             return json.dumps(datos, indent=2, ensure_ascii=False)
-        except APIException as e:
-            return json.dumps({'error': str(e.mensaje)}, indent=2)
+        except APIError as e:
+            return json.dumps({'error': str(e)}, indent=2)
 
-
-# ============================================
-# FUNCIÓN AUXILIAR PARA TESTING
-# ============================================
-
-def probar_api():
-    """
-    Función de prueba para verificar el funcionamiento de la API
-    """
-    print("Iniciando prueba del servicio de API...\n")
-    
-    servicio = ServicioExterno()
-    
-    # Probar con diferentes ciudades
-    ciudades = ["Mexico", "Beijing", "London"]
-    
-    for ciudad in ciudades:
-        print(f"\n--- Probando: {ciudad} ---")
-        try:
-            servicio.mostrar_datos_aire(ciudad)
-        except Exception as e:
-            print(f"Error: {e}")
-        
-        input("\nPresiona Enter para continuar...")
-
-
-if __name__ == "__main__":
-    # Ejecutar pruebas si se ejecuta directamente
-    probar_api()
+# Funcion de prueba (no la uso mucho)
+# def test_api():
+#     api = ServicioAPI()
+#     api.mostrar_datos("Mexico")

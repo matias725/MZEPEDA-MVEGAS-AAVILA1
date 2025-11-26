@@ -1,173 +1,99 @@
-"""
-Módulo de conexión a la base de datos MySQL
-Implementa el patrón Singleton para garantizar una única instancia de conexión
-Usa python-dotenv para cargar credenciales de forma segura
-"""
+# Conexion a MySQL con credenciales del .env
 import mysql.connector
 from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde archivo .env
 load_dotenv()
 
-
 class ConexionDB:
-    """
-    Clase Singleton para gestionar la conexión a MySQL
-    
-    Esta clase garantiza que solo exista una instancia de conexión
-    a la base de datos durante toda la ejecución del programa.
-    
-    Principio de Seguridad: Las credenciales se cargan desde variables
-    de entorno (.env) y nunca se almacenan directamente en el código.
-    """
-    
-    _instancia = None  # Variable de clase para almacenar la única instancia
-    
-    def __new__(cls):
-        """
-        Implementación del patrón Singleton
-        
-        Si no existe una instancia, la crea.
-        Si ya existe, retorna la existente.
-        """
-        if cls._instancia is None:
-            cls._instancia = super(ConexionDB, cls).__new__(cls)
-            cls._instancia._inicializar_conexion()
-        return cls._instancia
-    
-    def _inicializar_conexion(self):
-        """
-        Inicializa la conexión con MySQL usando credenciales del .env
-        """
+    # Clase para manejar la conexion a MySQL
+    def __init__(self):
+        # Cargar datos de conexion desde .env
         self.host = os.getenv('DB_HOST', 'localhost')
-        self.database = os.getenv('DB_NAME', 'ecotech_db')
+        self.database = os.getenv('DB_NAME', 'pepe123')
         self.user = os.getenv('DB_USER', 'root')
         self.password = os.getenv('DB_PASSWORD', '')
         self.port = os.getenv('DB_PORT', '3306')
-        self.conexion = None
+        self.conn = None
     
+    # Conectar a la base de datos
     def conectar(self):
-        """
-        Establece la conexión con la base de datos
-        
-        Returns:
-            mysql.connector.connection: Objeto de conexión activa
-            
-        Raises:
-            Error: Si no se puede establecer la conexión
-        """
         try:
-            if self.conexion is None or not self.conexion.is_connected():
-                self.conexion = mysql.connector.connect(
+            if self.conn is None or not self.conn.is_connected():
+                self.conn = mysql.connector.connect(
                     host=self.host,
                     database=self.database,
                     user=self.user,
                     password=self.password,
                     port=self.port
                 )
-                
-                if self.conexion.is_connected():
-                    print("✓ Conexión exitosa a la base de datos MySQL")
-                    return self.conexion
+                if self.conn.is_connected():
+                    print("Conectado a MySQL")
+                    return self.conn
             else:
-                return self.conexion
-                
+                return self.conn
         except Error as e:
-            print(f"✗ Error al conectar con MySQL: {e}")
+            print(f"Error conectando: {e}")
             raise
     
+    # Cerrar conexion
     def desconectar(self):
-        """
-        Cierra la conexión con la base de datos de forma segura
-        """
         try:
-            if self.conexion is not None and self.conexion.is_connected():
-                self.conexion.close()
-                print("✓ Conexión cerrada correctamente")
+            if self.conn is not None and self.conn.is_connected():
+                self.conn.close()
+                print("Conexion cerrada")
         except Error as e:
-            print(f"✗ Error al cerrar la conexión: {e}")
+            print(f"Error cerrando: {e}")
     
-    def obtener_cursor(self):
-        """
-        Obtiene un cursor para ejecutar consultas SQL
-        
-        Returns:
-            mysql.connector.cursor: Cursor para ejecutar queries
-        """
+    # Obtener cursor para ejecutar queries
+    def get_cursor(self):
         try:
-            conexion = self.conectar()
-            return conexion.cursor(dictionary=True)  # dictionary=True devuelve resultados como diccionarios
+            connection = self.conectar()
+            return connection.cursor(dictionary=True)
         except Error as e:
-            print(f"✗ Error al obtener cursor: {e}")
+            print(f"Error obteniendo cursor: {e}")
             raise
     
-    def ejecutar_query(self, query, parametros=None, commit=False):
-        """
-        Ejecuta una consulta SQL de forma segura
-        
-        Args:
-            query (str): Consulta SQL con placeholders (%s)
-            parametros (tuple): Parámetros para la consulta preparada
-            commit (bool): Si True, hace commit de la transacción
-            
-        Returns:
-            list: Resultados de la consulta (para SELECT)
-            int: ID del último registro insertado (para INSERT)
-            int: Número de filas afectadas (para UPDATE/DELETE)
-        """
+    # Ejecutar query en la BD
+    def ejecutar_query(self, query, params=None, commit=False):
         cursor = None
         try:
-            cursor = self.obtener_cursor()
-            cursor.execute(query, parametros or ())
+            cursor = self.get_cursor()
+            cursor.execute(query, params or ())
             
             if commit:
-                self.conexion.commit()
-                # Para INSERT, retornar el ID generado
+                self.conn.commit()
                 if query.strip().upper().startswith('INSERT'):
                     return cursor.lastrowid
-                # Para UPDATE/DELETE, retornar filas afectadas
                 return cursor.rowcount
             else:
-                # Para SELECT, retornar todos los resultados
                 return cursor.fetchall()
-                
         except Error as e:
-            if commit and self.conexion:
-                self.conexion.rollback()
-            print(f"✗ Error ejecutando query: {e}")
+            if commit and self.conn:
+                self.conn.rollback()
+            print(f"Error en query: {e}")
             raise
         finally:
             if cursor:
                 cursor.close()
 
+# Instancia global de la conexion (para usarla en todos lados)
+db_connection = None
 
-# ============================================
-# Funciones de utilidad para usar en otros módulos
-# ============================================
+def get_db():
+    # Obtener la conexion (crea una sola vez)
+    global db_connection
+    if db_connection is None:
+        db_connection = ConexionDB()
+    return db_connection
 
-def obtener_conexion():
-    """
-    Función helper para obtener la instancia de conexión
-    
-    Returns:
-        ConexionDB: Instancia única de la conexión
-    """
-    return ConexionDB()
-
-
+# Verificar si la conexion funciona
 def verificar_conexion():
-    """
-    Verifica que la conexión a la base de datos funcione correctamente
-    
-    Returns:
-        bool: True si la conexión es exitosa, False en caso contrario
-    """
     try:
-        db = ConexionDB()
+        db = get_db()
         db.conectar()
         return True
     except Exception as e:
-        print(f"Error en la verificación: {e}")
+        print(f"Error verificando conexion: {e}")
         return False
