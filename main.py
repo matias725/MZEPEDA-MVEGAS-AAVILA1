@@ -247,7 +247,7 @@ class AppEcoTech:
                 print("no se cambio nada")
                 
         except UsuarioError as e:
-            print(f"Error: {e.mensaje}")
+            print(f"Error: {e}")
         except Exception as e:
             print(f"Error: {e}")
     
@@ -281,7 +281,7 @@ class AppEcoTech:
                 print("Cancelado")
                 
         except UsuarioError as e:
-            print(f"Error: {e.mensaje}")
+            print(f"Error: {e}")
         except Exception as e:
             print(f"Error: {e}")
     
@@ -298,7 +298,7 @@ class AppEcoTech:
             self.api.mostrar_datos(ciudad)
             
         except APIError as e:
-            print(f"\nError API: {e.mensaje}")
+            print(f"\nError API: {e}")
         except Exception as e:
             print(f"\nError: {e}")
         
