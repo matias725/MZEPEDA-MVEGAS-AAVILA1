@@ -292,7 +292,7 @@ class AppEcoTech:
         print("\n--- DATOS AMBIENTALES (API) ---\n")
         
         try:
-            ciudad = input("ciudad [Mexico]: ").strip() or "Mexico"
+            ciudad = input("ciudad [Santiago]: ").strip() or "Santiago"
             
             print("\nconsultando...\n")
             self.api.mostrar_datos(ciudad)

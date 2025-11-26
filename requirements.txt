@@ -11,17 +11,22 @@ mysql-connector-python==8.2.0
 # Hasheo seguro de contraseñas
 bcrypt==4.1.2
 
-# Peticiones HTTP para API
+# Consumo de APIs REST
 requests==2.31.0
 
-# Carga de variables de entorno
+# Gestión de variables de entorno
 python-dotenv==1.0.0
 
 # ============================================
-# INSTALACIÓN RÁPIDA:
+# INSTRUCCIONES DE INSTALACIÓN:
 # ============================================
-# 1. Abre una terminal en la carpeta del proyecto
-# 2. Ejecuta: pip install -r requirements.txt
-# 3. Espera a que se instalen todas las librerías
-# 4. ¡Listo para ejecutar!
+# 1. Crear entorno virtual:
+#    python -m venv .venv
+#
+# 2. Activar entorno virtual:
+#    Windows: .venv\Scripts\activate
+#    Linux/Mac: source .venv/bin/activate
+#
+# 3. Instalar dependencias:
+#    pip install -r requirements.txt
 # ============================================
