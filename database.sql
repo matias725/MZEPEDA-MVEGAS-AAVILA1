@@ -30,7 +30,7 @@ CREATE TABLE usuarios (
 INSERT INTO usuarios (nombre_usuario, password, correo, rol) VALUES
 (
     'admin',
-    '$2b$12$Rab1Q7PyXEsHVG2O.8gY1.GMNXKGuri277DhY8Y.7Dt2k.q2tTAVm',
+    '$2b$12$96a8CGK7RivIM6IkB8i78.YaTr3NCQ96M3PzxP7x.I2cO.pkpEsWO',
     'admin@ecotech.com',
     'administrador'
 );
