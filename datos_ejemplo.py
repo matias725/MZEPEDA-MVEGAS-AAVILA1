@@ -60,7 +60,7 @@ def poblar_ejemplo():
 
     # Crear empleado 1 con contraseña 'password123'
     hash_pw = db.hash_contrasena("password123")
-    emp1 = db.agregar_empleado("María Pérez", "Calle Falsa 123", "+56912345678", "maria.perez@example.com", 1200.0, hash_pw, dep1)
+    emp1 = db.agregar_empleado("Matías Zepeda", "Calle Falsa 123", "+56912345678", "matias.zepeda@ecotech.com", 1200.0, hash_pw, dep1)
 
     # Crear empleado 2 con contraseña 'admin2025'
     hash_admin = db.hash_contrasena("admin2025")
@@ -80,8 +80,8 @@ def poblar_ejemplo():
     print(f"  - Registros: {len(db.listar_registros())}")
     
     print("\n🔑 Credenciales de prueba:")
-    print("  1️⃣  Email: maria.perez@example.com  |  Contraseña: password123")
-    print("  2️⃣  Email: admin@ecotech.com        |  Contraseña: admin2025")
+    print("  1️⃣  Email: matias.zepeda@ecotech.com  |  Contraseña: password123")
+    print("  2️⃣  Email: admin@ecotech.com          |  Contraseña: admin2025")
 
 
 if __name__ == "__main__":
