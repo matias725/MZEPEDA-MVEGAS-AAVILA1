@@ -445,19 +445,25 @@ class Aplicacion(tk.Tk):
             self.lista_registros.insert(tk.END, f"#{idr} - Emp:{emp} | Proj:{proj} | {fecha} | {horas}h")
 
     def exportar_reporte(self):
-        """Exporta todos los registros de tiempo a `reporte_horas.csv` en el directorio del proyecto.
-
-        Usa la librería estándar `csv` para generar un archivo que pueda abrirse en Excel.
+        """Exporta todos los registros de tiempo a CSV compatible con Excel.
+        
+        TAREA 2: Genera 'reporte_timesheets.csv' e intenta abrirlo automáticamente.
         """
         try:
             registros = db.listar_registros()
-            ruta = os.path.join(os.path.dirname(__file__), "reporte_horas.csv")
+            ruta = os.path.join(os.path.dirname(__file__), "reporte_timesheets.csv")
+            
             with open(ruta, mode='w', newline='', encoding='utf-8') as f:
                 escritor = csv.writer(f)
-                escritor.writerow(["id", "empleado_id", "proyecto_id", "fecha", "horas"])
+                escritor.writerow(["ID", "Empleado ID", "Proyecto ID", "Fecha", "Horas"])
                 for reg in registros:
                     escritor.writerow(reg)
-            messagebox.showinfo("Exportado", f"Reporte exportado correctamente a:\n{ruta}")
+            
+            messagebox.showinfo("✓ Exportado", f"Reporte generado exitosamente:\n{ruta}\n\nAbriéndolo automáticamente...")
+            
+            # Abrir automáticamente el archivo CSV (Windows)
+            os.system(f'start "" "{ruta}"')
+            
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar el reporte: {e}")
 
@@ -468,78 +474,76 @@ def iniciar_aplicacion():
 
 
 class Login(tk.Tk):
-    """Ventana de login que solicita email y contraseña.
-
-    Al autenticarse correctamente, destruye la ventana de login y abre la
-    aplicación principal `Aplicacion`.
+    """TAREA 1: Ventana de autenticación (Seguridad).
+    
+    Solicita email y contraseña, valida contra la BD usando SHA-256,
+    y si es correcto, cierra login y abre la aplicación principal.
     """
 
     def __init__(self):
         super().__init__()
-        self.title("Login - EcoTech Solutions")
-        self.geometry("350x180")
+        self.title("🔒 Login - EcoTech Solutions")
+        self.geometry("400x200")
+        self.resizable(False, False)
 
-        frame = ttk.Frame(self, padding=12)
-        frame.pack(expand=1, fill="both")
+        frame = ttk.Frame(self, padding=20)
+        frame.pack(expand=True, fill="both")
 
-        ttk.Label(frame, text="Email:").grid(row=0, column=0, sticky="w", pady=6)
-        self.ent_email = ttk.Entry(frame)
-        self.ent_email.grid(row=0, column=1, sticky="ew", padx=6)
+        ttk.Label(frame, text="Email:", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=8)
+        self.ent_email = ttk.Entry(frame, width=30)
+        self.ent_email.grid(row=0, column=1, sticky="ew", padx=10)
+        self.ent_email.focus()
 
-        ttk.Label(frame, text="Contraseña:").grid(row=1, column=0, sticky="w", pady=6)
-        self.ent_password = ttk.Entry(frame, show='*')
-        self.ent_password.grid(row=1, column=1, sticky="ew", padx=6)
+        ttk.Label(frame, text="Contraseña:", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=8)
+        self.ent_password = ttk.Entry(frame, width=30, show='●')
+        self.ent_password.grid(row=1, column=1, sticky="ew", padx=10)
 
         frame.columnconfigure(1, weight=1)
 
         botones = ttk.Frame(frame)
-        botones.grid(row=2, column=0, columnspan=2, pady=12)
-        ttk.Button(botones, text="Ingresar", command=self.intentar_ingresar).pack(side="left", padx=6)
-        ttk.Button(botones, text="Salir", command=self.destroy).pack(side="left", padx=6)
+        botones.grid(row=2, column=0, columnspan=2, pady=20)
+        ttk.Button(botones, text="🔓 Ingresar", command=self.intentar_ingresar, width=12).pack(side="left", padx=8)
+        ttk.Button(botones, text="❌ Salir", command=self.destroy, width=12).pack(side="left", padx=8)
 
-        # Bind Enter key to intentar_ingresar
-        self.bind('<Return>', lambda event: self.intentar_ingresar())
+        # Enter = Ingresar
+        self.bind('<Return>', lambda e: self.intentar_ingresar())
 
     def intentar_ingresar(self):
-        """Maneja el intento de login: valida email y contraseña contra la BD."""
+        """TAREA 1: Validación de credenciales con seguridad SHA-256."""
         email = self.ent_email.get().strip()
         contrasena = self.ent_password.get()
 
         if not validaciones.validar_no_vacio(email) or not validaciones.validar_no_vacio(contrasena):
-            messagebox.showerror("Error", "Email y contraseña son obligatorios.")
+            messagebox.showerror("❌ Error", "Email y contraseña son obligatorios.")
             return
 
         try:
             usuario = db.obtener_empleado_por_email(email)
         except Exception as e:
-            messagebox.showerror("Error", f"Error al consultar la base de datos: {e}")
+            messagebox.showerror("❌ Error BD", f"Error al consultar la base de datos:\n{e}")
             return
 
         if not usuario:
-            messagebox.showerror("Error", "Usuario no encontrado.")
+            messagebox.showerror("❌ Error", "Usuario no encontrado.\n\nVerifique el email ingresado.")
             return
 
-        # La tupla devuelta por obtener_empleado_por_email incluye password_hash en la posición 6
         try:
             password_hash = usuario[6]
         except Exception:
-            messagebox.showerror("Error", "Registro de usuario inválido.")
+            messagebox.showerror("❌ Error", "Registro de usuario inválido en la base de datos.")
             return
 
         if db.verificar_contrasena(contrasena, password_hash):
-            # Login correcto: cerrar ventana de login e iniciar la aplicación principal
+            # ✓ Login correcto: cerrar ventana de login y abrir aplicación principal
+            nombre_usuario = usuario[1]
+            messagebox.showinfo("✓ Bienvenido", f"Acceso concedido.\n\n¡Hola {nombre_usuario}!")
             self.destroy()
             iniciar_aplicacion()
         else:
-            messagebox.showerror("Error", "Contraseña incorrecta.")
+            messagebox.showerror("❌ Acceso Denegado", "Contraseña incorrecta.\n\nIntente nuevamente.")
 
 
 if __name__ == "__main__":
-    # Si se ejecuta directamente, abrir la ventana de login primero
+    # TAREA 3: El programa inicia mostrando Login primero
     login = Login()
     login.mainloop()
-
-
-
-if __name__ == "__main__":
-    iniciar_aplicacion()
