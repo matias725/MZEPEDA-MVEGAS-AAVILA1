@@ -1,32 +1,5 @@
-# ============================================
-# Dependencias del Proyecto EcoTech Solutions
-# ============================================
-# Instalar todas las dependencias con:
-# pip install -r requirements.txt
-# ============================================
+# Requisitos mínimos
+python>=3.8
 
-# Conexión a MySQL
-mysql-connector-python==8.2.0
-
-# Hasheo seguro de contraseñas
-bcrypt==4.1.2
-
-# Consumo de APIs REST
-requests==2.31.0
-
-# Gestión de variables de entorno
-python-dotenv==1.0.0
-
-# ============================================
-# INSTRUCCIONES DE INSTALACIÓN:
-# ============================================
-# 1. Crear entorno virtual:
-#    python -m venv .venv
-#
-# 2. Activar entorno virtual:
-#    Windows: .venv\Scripts\activate
-#    Linux/Mac: source .venv/bin/activate
-#
-# 3. Instalar dependencias:
-#    pip install -r requirements.txt
-# ============================================
+# Nota: `tkinter` y `sqlite3` forman parte de la librería estándar de Python en la mayoría
+# de instalaciones de CPython en Windows.
